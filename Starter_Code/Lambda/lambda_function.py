@@ -1,6 +1,7 @@
 ### Required Libraries ###
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import json
 
 ### Functionality Helper Functions ###
 def parse_int(n):
@@ -77,7 +78,7 @@ def close(session_attributes, fulfillment_state, message):
         },
     }
 
-    return response
+
 
 
 """
@@ -123,8 +124,36 @@ def recommend_portfolio(intent_request):
     investment_amount = get_slots(intent_request)["investmentAmount"]
     risk_level = get_slots(intent_request)["riskLevel"]
     source = intent_request["invocationSource"]
-
-    # YOUR CODE GOES HERE!
+    
+    
+    if age is not None:
+        age = parse_int(
+            age
+        )  # Since parameters are strings it's important to cast values
+        if age < 0:
+            return build_validation_result(
+                False,
+                "age",
+                "Your age is invalid, can you provide an age greater than zero?",
+            )
+        elif age >= 65:
+            return build_validation_result(
+                False,
+                "age",
+                "The maximum age to contract this service is 64, "
+                "can you provide an age between 0 and 64 please?",
+            )
+    # Validate the investment amount, it should be >= 5000
+    if investment_amount is not None:
+        investment_amount = parse_int(investment_amount)
+        if investment_amount < 5000:
+            return build_validation_result(
+                False,
+                "investmentAmount",
+                "The minimum investment amount is $5,000, "
+                "could you please provide a greater amount?",
+            )
+    return build_validation_result(True, None, None)
 
 
 ### Intents Dispatcher ###
