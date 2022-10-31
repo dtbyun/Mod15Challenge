@@ -78,7 +78,7 @@ def close(session_attributes, fulfillment_state, message):
         },
     }
 
-
+    return response
 
 
 """
@@ -112,7 +112,6 @@ In this section, you will create an Amazon Lambda function that will validate th
 
 """
 
-
 ### Intents Handlers ###
 def recommend_portfolio(intent_request):
     """
@@ -125,7 +124,41 @@ def recommend_portfolio(intent_request):
     risk_level = get_slots(intent_request)["riskLevel"]
     source = intent_request["invocationSource"]
     
-    
+    if source == 'DialogCodeHook':
+        slots = get_slots(intent_request)
+        validation_result = validate_data(age,intent_request,investment_amount)
+        if not validation_result['isValid']:
+            slots[validation_result['violatedSlot']]=None
+            return elicit_slot(intent_request['sessionAttributes'],
+                               intent_request['currentIntent']['name'],
+                               slots,
+                               validation_result['violatedSlot'],
+                               validation_result['message'],
+                              )
+#attributes
+
+        output_attribute = intent_request['sessionAttributes']
+        return delegate(output_attribute,get_slots(intent_request))
+    ##initial investment recommendation and return message##
+    ii_recommendation(risk_level)
+    return close(intent_request['sessionAttributes'],
+                 'Fulfilled',
+                 {
+                     'contentStyle' : 'PlainText',
+                     'content': 'Information based off of your risk level-{}. We encourage you to to go with investment:{}. Thank you for choosing our service to find the best portfolio suited for you.'.format(first_name,initial)})
+
+def get_investment_recommendation(risk_level): 
+    risk_levels= {
+        'none': "100% bonds (AGG), 0% equities(SPY)", 
+        'low': "60% bonds (AGG), 40% equities(SPY)", 
+        'medium': "40% bonds (AGG), 60% equities(SPY)", 
+        'high': "20% bonds (AGG), 80% equities(SPY)",
+    }
+    return risk_levels[risk_level.lower()]
+
+### validation age###
+def valid_data(age,intent_request,investment_amount):
+       
     if age is not None:
         age = parse_int(
             age
@@ -143,16 +176,18 @@ def recommend_portfolio(intent_request):
                 "The maximum age to contract this service is 64, "
                 "can you provide an age between 0 and 64 please?",
             )
-    # Validate the investment amount, it should be >= 5000
+            
+    # Validate the investment amount, it should be > 5000
+def validate_data(age,intent_request,investment_amount):
     if investment_amount is not None:
         investment_amount = parse_int(investment_amount)
         if investment_amount < 5000:
             return build_validation_result(
                 False,
                 "investmentAmount",
-                "The minimum investment amount is $5,000, "
-                "could you please provide a greater amount?",
-            )
+                "The minimum investment amount is $5000." 
+                " Could you please provide a greater amount than $5000?",
+                )
     return build_validation_result(True, None, None)
 
 
