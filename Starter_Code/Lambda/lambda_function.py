@@ -27,6 +27,49 @@ def build_validation_result(is_valid, violated_slot, message_content):
         "message": {"contentType": "PlainText", "content": message_content},
     }
 
+def get_investment_recommendation(risk_level): 
+    risk_levels= {
+        'none': "100% bonds (AGG), 0% equities(SPY)", 
+        'low': "60% bonds (AGG), 40% equities(SPY)", 
+        'medium': "40% bonds (AGG), 60% equities(SPY)", 
+        'high': "20% bonds (AGG), 80% equities(SPY)",
+    }
+    return risk_levels["low"]
+     
+### validation age###
+def validate_data(age,investment_amount,intent_request):
+    """
+    Validates information provided by the user
+    """
+    #validate user's age based on current age
+    if age is not None:
+        age = parse_int(age)
+        if age < 0:
+            return build_validation_result(
+                False,
+                "age",
+                "Provided age must be greater than zero.",
+            )
+        elif age >= 65:
+            return build_validation_result(
+                False,
+                "age",
+                "The maximum age to contract this service is 64,"
+                "can you provide an age between 0 and 64 please?",
+            )
+            
+    # Validate the investment amount, it should be >= 5000
+    #def validate_data(age,intent_request,investment_amount):
+    if investment_amount is not None:
+        investment_amount = parse_int(investment_amount)
+        if investment_amount < 5000:
+            return build_validation_result(
+                False,
+                "investmentAmount",
+                "The minimum investment amount is $5000." 
+                " Could you please provide a greater amount than $5000?",
+                )
+    return build_validation_result(True, None, None)
 
 ### Dialog Actions Helper Functions ###
 def get_slots(intent_request):
@@ -40,7 +83,6 @@ def elicit_slot(session_attributes, intent_name, slots, slot_to_elicit, message)
     """
     Defines an elicit slot type response.
     """
-
     return {
         "sessionAttributes": session_attributes,
         "dialogAction": {
@@ -68,7 +110,6 @@ def close(session_attributes, fulfillment_state, message):
     """
     Defines a close slot type response.
     """
-
     response = {
         "sessionAttributes": session_attributes,
         "dialogAction": {
@@ -83,33 +124,21 @@ def close(session_attributes, fulfillment_state, message):
 
 """
 Step 3: Enhance the Robo Advisor with an Amazon Lambda Function
-
 In this section, you will create an Amazon Lambda function that will validate the data provided by the user on the Robo Advisor.
-
 1. Start by creating a new Lambda function from scratch and name it `recommendPortfolio`. Select Python 3.7 as runtime.
-
 2. In the Lambda function code editor, continue by deleting the AWS generated default lines of code, then paste in the starter code provided in `lambda_function.py`.
-
 3. Complete the `recommend_portfolio()` function by adding these validation rules:
-
     * The `age` should be greater than zero and less than 65.
     * The `investment_amount` should be equal to or greater than 5000.
-
 4. Once the intent is fulfilled, the bot should respond with an investment recommendation based on the selected risk level as follows:
-
     * **none:** "100% bonds (AGG), 0% equities (SPY)"
     * **low:** "60% bonds (AGG), 40% equities (SPY)"
     * **medium:** "40% bonds (AGG), 60% equities (SPY)"
     * **high:** "20% bonds (AGG), 80% equities (SPY)"
-
 > **Hint:** Be creative while coding your solution, you can have all the code on the `recommend_portfolio()` function, or you can split the functionality across different functions, put your Python coding skills in action!
-
 5. Once you finish coding your Lambda function, test it using the sample test events provided for this Challenge.
-
 6. After successfully testing your code, open the Amazon Lex Console and navigate to the `recommendPortfolio` bot configuration, integrate your new Lambda function by selecting it in the “Lambda initialization and validation” and “Fulfillment” sections.
-
 7. Build your bot, and test it with valid and invalid data for the slots.
-
 """
 
 ### Intents Handlers ###
@@ -126,69 +155,33 @@ def recommend_portfolio(intent_request):
     
     if source == 'DialogCodeHook':
         slots = get_slots(intent_request)
-        validation_result = validate_data(age,intent_request,investment_amount)
-        if not validation_result['isValid']:
-            slots[validation_result['violatedSlot']]=None
-            return elicit_slot(intent_request['sessionAttributes'],
-                               intent_request['currentIntent']['name'],
+        validation_result = validate_data(age,investment_amount,intent_request)
+        if not validation_result["isValid"]:
+            slots[validation_result["violatedSlot"]]=None #to clean the invalid slot
+            return elicit_slot(intent_request["sessionAttributes"],
+                               intent_request["currentIntent"]["name"],
                                slots,
-                               validation_result['violatedSlot'],
-                               validation_result['message'],
+                               validation_result["violatedSlot"],
+                               validation_result["message"],
                               )
-#attributes
 
+        #current session attributes
         output_attribute = intent_request['sessionAttributes']
         return delegate(output_attribute,get_slots(intent_request))
+        
     ##initial investment recommendation and return message##
-    ii_recommendation(risk_level)
-    return close(intent_request['sessionAttributes'],
-                 'Fulfilled',
-                 {
-                     'contentStyle' : 'PlainText',
-                     'content': 'Information based off of your risk level-{}. We encourage you to to go with investment:{}. Thank you for choosing our service to find the best portfolio suited for you.'.format(first_name,initial)})
-
-def get_investment_recommendation(risk_level): 
-    risk_levels= {
-        'none': "100% bonds (AGG), 0% equities(SPY)", 
-        'low': "60% bonds (AGG), 40% equities(SPY)", 
-        'medium': "40% bonds (AGG), 60% equities(SPY)", 
-        'high': "20% bonds (AGG), 80% equities(SPY)",
-    }
-    return risk_levels[risk_level.lower()]
-
-### validation age###
-def valid_data(age,intent_request,investment_amount):
-       
-    if age is not None:
-        age = parse_int(
-            age
-        )  # Since parameters are strings it's important to cast values
-        if age < 0:
-            return build_validation_result(
-                False,
-                "age",
-                "Your age is invalid, can you provide an age greater than zero?",
-            )
-        elif age >= 65:
-            return build_validation_result(
-                False,
-                "age",
-                "The maximum age to contract this service is 64, "
-                "can you provide an age between 0 and 64 please?",
-            )
-            
-    # Validate the investment amount, it should be > 5000
-def validate_data(age,intent_request,investment_amount):
-    if investment_amount is not None:
-        investment_amount = parse_int(investment_amount)
-        if investment_amount < 5000:
-            return build_validation_result(
-                False,
-                "investmentAmount",
-                "The minimum investment amount is $5000." 
-                " Could you please provide a greater amount than $5000?",
-                )
-    return build_validation_result(True, None, None)
+    
+    initial_recommendation = get_investment_recommendation(risk_level)
+    return close(
+        intent_request['sessionAttributes'],
+        'Fulfilled',
+        {
+            'contentStyle' : 'PlainText',
+            'content':"""{}Thank you for providing your information;
+            based on the risk level you provided, our recommendation to you is to choose investment portfolio {}
+            """.format(first_name,initial_recommendation),
+        },
+    )
 
 
 ### Intents Dispatcher ###
